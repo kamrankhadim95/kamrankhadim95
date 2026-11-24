@@ -1,0 +1,43 @@
+# Builds the "My Stats" cards in profile/ from public and private repositories with
+# .github/scripts/build_cards.py and commits them. The STATS_TOKEN secret (a personal access
+# token with read access to the owner's repositories) lets the cards include private repos;
+# without it the cards cover public repos only.
+name: Update README cards
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
+  workflow_dispatch:          # "Run workflow" button in the Actions tab
+  push:
+    branches: [main]
+    paths-ignore: ["profile/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-cards
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build cards
+        env:
+          GH_TOKEN: ${{ secrets.STATS_TOKEN || secrets.GITHUB_TOKEN }}
+          STATS_USER: ${{ github.repository_owner }}
+          STATS_DISPLAY_NAME: Kamran Khadim
+          STATS_EXCLUDE_REPOS: Roman-Urdu-Sentiment-Analysis
+          STATS_EXCLUDE_OWNERS: theentertainerme,theentertainerdxb,theentertainerasia
+        run: python3 .github/scripts/build_cards.py
+
+      - name: Commit cards
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add profile/*.svg
+          git commit -m "Update README cards" || exit 0
+          git push
